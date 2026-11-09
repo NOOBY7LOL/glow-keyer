@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Glow Keyer</title>
+<style>
+:root{--bg:#eef0f6;--fg:#14162b;--card:#fff;--line:#cdd1e4;--ac:#4b3fe0;--mut:#5d6180;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d0e1a;--fg:#e9eaf7;--card:#171933;--line:#2c2f55;--ac:#9a8cff;--mut:#9094b8;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0d0e1a;--fg:#e9eaf7;--card:#171933;--line:#2c2f55;--ac:#9a8cff;--mut:#9094b8;color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 "Trebuchet MS",system-ui,sans-serif}
+main{max-width:860px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.7rem;margin:0 0 4px;letter-spacing:-.02em}
+p.sub{margin:0 0 16px;color:var(--mut)}
+.drop{display:block;border:2px dashed var(--line);border-radius:14px;padding:22px;text-align:center;cursor:pointer;background:var(--card)}
+.drop:focus-within,.drop:hover{border-color:var(--ac)}
+.drop input{position:absolute;opacity:0;width:1px;height:1px}
+.stage{margin:16px 0;border-radius:14px;border:1px solid var(--line);overflow:hidden;display:none;background-color:#777;
+ background-image:linear-gradient(45deg,#999 25%,transparent 25%,transparent 75%,#999 75%),linear-gradient(45deg,#999 25%,transparent 25%,transparent 75%,#999 75%);background-size:20px 20px;background-position:0 0,10px 10px}
+canvas{display:block;width:100%;height:auto;max-height:60vh;margin:0 auto}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:none}
+.row{display:grid;grid-template-columns:130px 1fr 44px;gap:10px;align-items:center;margin:8px 0}
+.row output{text-align:right;color:var(--mut);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--ac)}
+.opts{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;align-items:center}
+label.chk{display:flex;gap:6px;align-items:center}
+button{font:inherit;border:0;border-radius:10px;padding:10px 16px;background:var(--ac);color:#fff;cursor:pointer;font-weight:700}
+button.alt{background:transparent;color:var(--fg);border:1px solid var(--line)}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,input:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
+.btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+#msg{margin-top:12px;color:var(--mut);min-height:1.4em}
+#msg a{color:var(--ac);font-weight:700}
+</style>
+</head>
+<body>
+<main>
+<h1>Glow Keyer</h1>
+<p class="sub">Remove a black background and keep the glow. Everything runs on your device; nothing is uploaded.</p>
+
+<label class="drop"><input type="file" id="file" accept="video/*"><strong>Choose your video</strong><br><span class="sub">Black background, bright text</span></label>
+
+<div class="stage" id="stage"><canvas id="c"></canvas></div>
+<video id="v" muted playsinline style="display:none"></video>
+
+<section class="panel" id="panel">
+ <div class="row"><label for="black">Black cutoff</label><input type="range" id="black" min="0" max="120" value="8"><output id="o1">8</output></div>
+ <div class="row"><label for="gain">Glow strength</label><input type="range" id="gain" min="50" max="300" value="100"><output id="o2">1.0</output></div>
+ <div class="opts">
+  <label class="chk"><input type="checkbox" id="unm" checked> Remove black fringe</label>
+  <label class="chk"><input type="checkbox" id="bake"> Add background to export</label>
+  <label class="chk">Color <input type="color" id="bgc" value="#1e6bff"></label>
+  <label class="chk">Image <input type="file" id="bgi" accept="image/*"></label>
+ </div>
+ <div class="btns">
+  <button id="play" class="alt">Play / pause</button>
+  <button id="png" class="alt">Save this frame (PNG)</button>
+  <button id="rec">Export video (WebM)</button>
+ </div>
+ <div id="msg"></div>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const v=$('v'),c=$('c'),ctx=c.getContext('2d',{willReadFrequently:true});
+let bgImg=null,rec=null,chunks=[],recording=false;
+
+function render(){
+  if(!v.videoWidth)return;
+  const black=+$('black').value,gain=+$('gain').value/100,unm=$('unm').checked;
+  ctx.globalCompositeOperation='source-over';
+  ctx.clearRect(0,0,c.width,c.height);
+  ctx.drawImage(v,0,0,c.width,c.height);
+  const im=ctx.getImageData(0,0,c.width,c.height),d=im.data,span=Math.max(1,255-black);
+  for(let i=0;i<d.length;i+=4){
+    const r=d[i],g=d[i+1],b=d[i+2];
+    const m=r>g?(r>b?r:b):(g>b?g:b);
+    let a=(m-black)/span*gain;
+    a=a<0?0:a>1?1:a;
+    if(unm&&m>0){const k=255/m;d[i]=Math.min(255,r*k);d[i+1]=Math.min(255,g*k);d[i+2]=Math.min(255,b*k)}
+    d[i+3]=a*255;
+  }
+  ctx.putImageData(im,0,0);
+  if($('bake').checked){
+    ctx.globalCompositeOperation='destination-over';
+    if(bgImg)ctx.drawImage(bgImg,0,0,c.width,c.height);
+    else{ctx.fillStyle=$('bgc').value;ctx.fillRect(0,0,c.width,c.height)}
+    ctx.globalCompositeOperation='source-over';
+  }
+}
+function loop(){
+  render();
+  if(!v.paused&&!v.ended){
+    if(v.requestVideoFrameCallback)v.requestVideoFrameCallback(loop);else requestAnimationFrame(loop);
+  }
+}
+$('file').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  v.src=URL.createObjectURL(f);v.loop=true;
+  v.onloadeddata=()=>{
+    c.width=v.videoWidth;c.height=v.videoHeight;
+    $('stage').style.display='block';$('panel').style.display='block';
+    $('msg').textContent='Drag the sliders until the glow looks right. Checkerboard means transparent.';
+    v.currentTime=0;v.play().then(loop).catch(render);
+  };
+};
+['black','gain'].forEach(id=>$(id).oninput=()=>{
+  $('o1').textContent=$('black').value;$('o2').textContent=($('gain').value/100).toFixed(1);render();
+});
+['unm','bake','bgc'].forEach(id=>$(id).oninput=render);
+$('bgi').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const im=new Image();im.onload=()=>{bgImg=im;$('bake').checked=true;render()};im.src=URL.createObjectURL(f);
+};
+$('play').onclick=()=>{if(v.paused){v.play();loop()}else{v.pause();render()}};
+$('png').onclick=()=>{
+  render();
+  c.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='frame.png';a.click()},'image/png');
+};
+$('rec').onclick=()=>{
+  if(recording){v.loop=true;rec.stop();return}
+  const mt=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'].find(t=>window.MediaRecorder&&MediaRecorder.isTypeSupported(t));
+  if(!mt){$('msg').textContent='This browser can’t record video. Try Chrome on desktop or Android.';return}
+  chunks=[];rec=new MediaRecorder(c.captureStream(30),{mimeType:mt,videoBitsPerSecond:30e6});
+  rec.ondataavailable=e=>e.data.size&&chunks.push(e.data);
+  rec.onstop=()=>{
+    recording=false;$('rec').textContent='Export video (WebM)';
+    const url=URL.createObjectURL(new Blob(chunks,{type:'video/webm'}));
+    $('msg').innerHTML='Done. <a href="'+url+'" download="glow-keyed.webm">Download glow-keyed.webm</a>';
+  };
+  recording=true;$('rec').textContent='Recording… tap to stop early';
+  $('msg').textContent='Recording one full play-through in real time. Keep this tab open.';
+  v.loop=false;v.currentTime=0;v.onended=()=>{if(recording)rec.stop()};
+  rec.start();v.play();loop();
+};
+</script>
+</body>
+</html>
