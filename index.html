@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Glow Keyer</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d0e1a">
+<link rel="icon" href="icon-192.png">
 <style>
 :root{--bg:#eef0f6;--fg:#14162b;--card:#fff;--line:#cdd1e4;--ac:#4b3fe0;--mut:#5d6180;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d0e1a;--fg:#e9eaf7;--card:#171933;--line:#2c2f55;--ac:#9a8cff;--mut:#9094b8;color-scheme:dark}}
@@ -135,6 +138,7 @@ $('rec').onclick=()=>{
   v.loop=false;v.currentTime=0;v.onended=()=>{if(recording)rec.stop()};
   rec.start();v.play();loop();
 };
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{})}
 </script>
 </body>
 </html>
