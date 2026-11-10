@@ -70,6 +70,16 @@ const $=id=>document.getElementById(id);
 const v=$('v'),c=$('c'),ctx=c.getContext('2d',{willReadFrequently:true});
 let bgImg=null,rec=null,chunks=[],recording=false;
 
+async function saveBlob(blob,name){
+  if(!window.Android){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();return}
+  Android.begin(name,blob.type||'application/octet-stream');
+  const N=3*512*1024;
+  for(let o=0;o<blob.size;o+=N){
+    const b64=await new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result.split(',')[1]);f.readAsDataURL(blob.slice(o,o+N))});
+    Android.chunk(b64);
+  }
+  Android.end();
+}
 function render(){
   if(!v.videoWidth)return;
   const black=+$('black').value,gain=+$('gain').value/100,unm=$('unm').checked;
@@ -120,7 +130,7 @@ $('bgi').onchange=e=>{
 $('play').onclick=()=>{if(v.paused){v.play();loop()}else{v.pause();render()}};
 $('png').onclick=()=>{
   render();
-  c.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='frame.png';a.click()},'image/png');
+  c.toBlob(b=>{saveBlob(b,'frame.png')},'image/png');
 };
 $('rec').onclick=()=>{
   if(recording){v.loop=true;rec.stop();return}
@@ -130,8 +140,9 @@ $('rec').onclick=()=>{
   rec.ondataavailable=e=>e.data.size&&chunks.push(e.data);
   rec.onstop=()=>{
     recording=false;$('rec').textContent='Export video (WebM)';
-    const url=URL.createObjectURL(new Blob(chunks,{type:'video/webm'}));
-    $('msg').innerHTML='Done. <a href="'+url+'" download="glow-keyed.webm">Download glow-keyed.webm</a>';
+    const blob=new Blob(chunks,{type:'video/webm'});
+    if(window.Android){$('msg').textContent='Saving…';saveBlob(blob,'glow-keyed.webm').then(()=>{$('msg').textContent='Saved to Downloads: glow-keyed.webm'})}
+    else{const url=URL.createObjectURL(blob);$('msg').innerHTML='Done. <a href="'+url+'" download="glow-keyed.webm">Download glow-keyed.webm</a>'}
   };
   recording=true;$('rec').textContent='Recording… tap to stop early';
   $('msg').textContent='Recording one full play-through in real time. Keep this tab open.';
