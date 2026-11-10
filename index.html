@@ -49,7 +49,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--ac);outline-off
 <video id="v" muted playsinline style="display:none"></video>
 
 <section class="panel" id="panel">
- <div class="row"><label for="black">Black cutoff</label><input type="range" id="black" min="0" max="120" value="8"><output id="o1">8</output></div>
+ <div class="row"><label for="black">Black cutoff</label><input type="range" id="black" min="0" max="120" value="0"><output id="o1">0</output></div>
  <div class="row"><label for="gain">Glow strength</label><input type="range" id="gain" min="50" max="300" value="100"><output id="o2">1.0</output></div>
  <div class="opts">
   <label class="chk"><input type="checkbox" id="unm" checked> Remove black fringe</label>
@@ -92,7 +92,7 @@ function render(){
     const m=r>g?(r>b?r:b):(g>b?g:b);
     let a=(m-black)/span*gain;
     a=a<0?0:a>1?1:a;
-    if(unm&&m>0){const k=255/m;d[i]=Math.min(255,r*k);d[i+1]=Math.min(255,g*k);d[i+2]=Math.min(255,b*k)}
+    if(unm&&m>0){const k=Math.min(255/m,3);d[i]=Math.min(255,r*k);d[i+1]=Math.min(255,g*k);d[i+2]=Math.min(255,b*k)}
     d[i+3]=a*255;
   }
   ctx.putImageData(im,0,0);
