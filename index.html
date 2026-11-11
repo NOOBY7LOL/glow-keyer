@@ -49,7 +49,8 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--ac);outline-off
 <video id="v" muted playsinline style="display:none"></video>
 
 <section class="panel" id="panel">
- <div class="row"><label for="black">Black cutoff</label><input type="range" id="black" min="0" max="120" value="0"><output id="o1">0</output></div>
+ <div class="row"><label for="black">Black cutoff</label><input type="range" id="black" min="0" max="120" value="5"><output id="o1">5</output></div>
+ <div class="row"><label for="amt">Color amount</label><input type="range" id="amt" min="0" max="100" value="30"><output id="o3">30</output></div>
  <div class="row"><label for="gain">Glow strength</label><input type="range" id="gain" min="50" max="300" value="100"><output id="o2">1.0</output></div>
  <div class="opts">
   <label class="chk"><input type="checkbox" id="unm" checked> Remove black fringe</label>
@@ -83,6 +84,7 @@ async function saveBlob(blob,name){
 function render(){
   if(!v.videoWidth)return;
   const black=+$('black').value,gain=+$('gain').value/100,unm=$('unm').checked;
+  const amt=+$('amt').value/100;
   ctx.globalCompositeOperation='source-over';
   ctx.clearRect(0,0,c.width,c.height);
   ctx.drawImage(v,0,0,c.width,c.height);
@@ -90,9 +92,12 @@ function render(){
   for(let i=0;i<d.length;i+=4){
     const r=d[i],g=d[i+1],b=d[i+2];
     const m=r>g?(r>b?r:b):(g>b?g:b);
-    let a=(m-black)/span*gain;
-    a=a<0?0:a>1?1:a;
-    if(unm&&m>0){const k=Math.min(255/m,3);d[i]=Math.min(255,r*k);d[i+1]=Math.min(255,g*k);d[i+2]=Math.min(255,b*k)}
+    let t=(m-black)/span;t=t<0?0:t>1?1:t;
+    const q=t*4>1?1:t*4;
+    let a=t*q*q*(3-2*q)*gain;a=a>1?1:a;
+    if(unm&&m>0){const k=Math.min(255/m,3);
+      const R=Math.min(255,r*k),G=Math.min(255,g*k),B=Math.min(255,b*k);
+      d[i]=255+(R-255)*amt;d[i+1]=255+(G-255)*amt;d[i+2]=255+(B-255)*amt}
     d[i+3]=a*255;
   }
   ctx.putImageData(im,0,0);
@@ -119,7 +124,8 @@ $('file').onchange=e=>{
     v.currentTime=0;v.play().then(loop).catch(render);
   };
 };
-['black','gain'].forEach(id=>$(id).oninput=()=>{
+['black','gain','amt'].forEach(id=>$(id).oninput=()=>{
+  $('o3').textContent=$('amt').value;
   $('o1').textContent=$('black').value;$('o2').textContent=($('gain').value/100).toFixed(1);render();
 });
 ['unm','bake','bgc'].forEach(id=>$(id).oninput=render);
