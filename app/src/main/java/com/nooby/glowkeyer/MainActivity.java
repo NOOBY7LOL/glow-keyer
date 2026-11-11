@@ -33,6 +33,8 @@ public class MainActivity extends Activity {
         s.setAllowFileAccess(true);
         s.setMediaPlaybackRequiresUserGesture(false);
         web.addJavascriptInterface(new Bridge(), "Android");
+        web.setDownloadListener((url, ua, cd, mime, len) ->
+            web.evaluateJavascript("if(typeof lastBlob!=='undefined'&&lastBlob)saveBlob(lastBlob,'glow-keyed.webm')", null));
         web.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onShowFileChooser(WebView w, ValueCallback<Uri[]> cb, FileChooserParams p) {
