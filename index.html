@@ -62,7 +62,8 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--ac);outline-off
  <div class="btns">
   <button id="play" class="alt">Play / pause</button>
   <button id="png" class="alt">Save this frame (PNG)</button>
-  <button id="rec">Export video (WebM)</button>
+  <button id="rec2">Export for editors (CapCut, gallery)</button>
+  <button id="rec" class="alt">Export transparent WebM</button>
  </div>
  <div id="msg"></div>
  <div class="stage" id="rstage"><video id="rv" controls loop playsinline muted></video></div>
@@ -143,6 +144,7 @@ $('png').onclick=()=>{
 };
 let lastBlob=null;
 $('save').onclick=()=>{if(lastBlob){$('msg').textContent='Saving…';saveBlob(lastBlob,'glow-keyed.webm').then(()=>{$('msg').textContent='Saved: glow-keyed.webm'})}};
+$('rec2').onclick=()=>{if(recording)return;$('bake').checked=true;$('bgc').value='#000000';bgImg=null;render();$('rec').click()};
 $('rec').onclick=()=>{
   if(recording){v.loop=true;rec.stop();return}
   const mt=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'].find(t=>window.MediaRecorder&&MediaRecorder.isTypeSupported(t));
@@ -150,11 +152,11 @@ $('rec').onclick=()=>{
   chunks=[];rec=new MediaRecorder(c.captureStream(30),{mimeType:mt,videoBitsPerSecond:30e6});
   rec.ondataavailable=e=>e.data.size&&chunks.push(e.data);
   rec.onstop=()=>{
-    recording=false;$('rec').textContent='Export video (WebM)';
+    recording=false;$('rec').textContent='Export transparent WebM';
     lastBlob=new Blob(chunks,{type:'video/webm'});
     $('rv').src=URL.createObjectURL(lastBlob);$('rv').muted=true;$('rv').play().catch(()=>{});
     $('rstage').style.display='block';$('rbtn').style.display='flex';
-    $('msg').textContent='This is the exported video. Tap Save if it looks right.';
+    $('msg').textContent='This is the exported video. Tap Save if it looks right. In your editor, put it on top and set Blend to Screen.';
     $('rstage').scrollIntoView({behavior:'smooth'});
   };
   recording=true;$('rec').textContent='Recording… tap to stop early';
