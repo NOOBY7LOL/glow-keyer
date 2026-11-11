@@ -48,6 +48,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--ac);outline-off
 
 <div class="stage" id="stage"><canvas id="c"></canvas></div>
 <video id="v" muted playsinline style="display:none"></video>
+<video id="bv" muted loop playsinline style="display:none"></video>
 
 <section class="panel" id="panel">
  <div class="row"><label for="black">Black cutoff</label><input type="range" id="black" min="0" max="120" value="3"><output id="o1">3</output></div>
@@ -58,11 +59,12 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--ac);outline-off
   <label class="chk"><input type="checkbox" id="bake"> Add background to export</label>
   <label class="chk">Color <input type="color" id="bgc" value="#1e6bff"></label>
   <label class="chk">Image <input type="file" id="bgi" accept="image/*"></label>
+  <label class="chk">Background video <input type="file" id="bgv" accept="video/*"></label>
  </div>
  <div class="btns">
   <button id="play" class="alt">Play / pause</button>
   <button id="png" class="alt">Save this frame (PNG)</button>
-  <button id="rec">Export transparent WebM</button>
+  <button id="rec">Export video (WebM)</button>
  </div>
  <div id="msg"></div>
  <div class="stage" id="rstage"><video id="rv" controls controlsList="noplaybackrate" loop playsinline muted></video></div>
@@ -72,7 +74,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--ac);outline-off
 <script>
 const $=id=>document.getElementById(id);
 const v=$('v'),c=$('c'),ctx=c.getContext('2d',{willReadFrequently:true});
-let bgImg=null,rec=null,chunks=[],recording=false;
+let bgVid=null,bgImg=null,rec=null,chunks=[],recording=false;
 
 async function saveBlob(blob,name){
   if(!window.Android){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();return}
@@ -106,7 +108,8 @@ function render(){
   ctx.putImageData(im,0,0);
   if($('bake').checked){
     ctx.globalCompositeOperation='destination-over';
-    if(bgImg)ctx.drawImage(bgImg,0,0,c.width,c.height);
+    if(bgVid&&bgVid.videoWidth){const k=Math.max(c.width/bgVid.videoWidth,c.height/bgVid.videoHeight),w=bgVid.videoWidth*k,h=bgVid.videoHeight*k;ctx.drawImage(bgVid,(c.width-w)/2,(c.height-h)/2,w,h)}
+    else if(bgImg)ctx.drawImage(bgImg,0,0,c.width,c.height);
     else{ctx.fillStyle=$('bgc').value;ctx.fillRect(0,0,c.width,c.height)}
     ctx.globalCompositeOperation='source-over';
   }
@@ -134,8 +137,9 @@ $('file').onchange=e=>{
 ['unm','bake','bgc'].forEach(id=>$(id).oninput=render);
 $('bgi').onchange=e=>{
   const f=e.target.files[0];if(!f)return;
-  const im=new Image();im.onload=()=>{bgImg=im;$('bake').checked=true;render()};im.src=URL.createObjectURL(f);
+  const im=new Image();im.onload=()=>{bgImg=im;bgVid=null;$('bake').checked=true;render()};im.src=URL.createObjectURL(f);
 };
+$('bgv').onchange=e=>{const f=e.target.files[0];if(!f)return;const b=$('bv');b.src=URL.createObjectURL(f);b.onloadeddata=()=>{bgVid=b;bgImg=null;$('bake').checked=true;b.play().catch(()=>{});render()}};
 $('play').onclick=()=>{if(v.paused){v.play();loop()}else{v.pause();render()}};
 $('png').onclick=()=>{
   render();
@@ -150,7 +154,7 @@ $('rec').onclick=()=>{
   chunks=[];rec=new MediaRecorder(c.captureStream(30),{mimeType:mt,videoBitsPerSecond:30e6});
   rec.ondataavailable=e=>e.data.size&&chunks.push(e.data);
   rec.onstop=()=>{
-    recording=false;$('rec').textContent='Export transparent WebM';
+    recording=false;$('rec').textContent='Export video (WebM)';
     lastBlob=new Blob(chunks,{type:'video/webm'});
     $('rv').src=URL.createObjectURL(lastBlob);$('rv').muted=true;$('rv').play().catch(()=>{});
     $('rstage').style.display='block';$('rbtn').style.display='flex';
@@ -159,6 +163,7 @@ $('rec').onclick=()=>{
   };
   recording=true;$('rec').textContent='Recording… tap to stop early';
   $('msg').textContent='Recording one full play-through in real time. Keep this tab open.';
+  if(bgVid){bgVid.currentTime=0;bgVid.play().catch(()=>{})}
   v.loop=false;v.currentTime=0;v.onended=()=>{if(recording)rec.stop()};
   rec.start();v.play();loop();
 };
