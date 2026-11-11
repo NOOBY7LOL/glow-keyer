@@ -22,6 +22,7 @@ p.sub{margin:0 0 16px;color:var(--mut)}
 .drop input{position:absolute;opacity:0;width:1px;height:1px}
 .stage{margin:16px 0;border-radius:14px;border:1px solid var(--line);overflow:hidden;display:none;background-color:#777;
  background-image:linear-gradient(45deg,#999 25%,transparent 25%,transparent 75%,#999 75%),linear-gradient(45deg,#999 25%,transparent 25%,transparent 75%,#999 75%);background-size:20px 20px;background-position:0 0,10px 10px}
+#rv{display:block;width:100%;max-height:60vh;margin:0 auto}
 canvas{display:block;width:100%;height:auto;max-height:60vh;margin:0 auto}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:none}
 .row{display:grid;grid-template-columns:130px 1fr 44px;gap:10px;align-items:center;margin:8px 0}
@@ -49,7 +50,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--ac);outline-off
 <video id="v" muted playsinline style="display:none"></video>
 
 <section class="panel" id="panel">
- <div class="row"><label for="black">Black cutoff</label><input type="range" id="black" min="0" max="120" value="5"><output id="o1">5</output></div>
+ <div class="row"><label for="black">Black cutoff</label><input type="range" id="black" min="0" max="120" value="3"><output id="o1">3</output></div>
  <div class="row"><label for="amt">Color amount</label><input type="range" id="amt" min="0" max="100" value="30"><output id="o3">30</output></div>
  <div class="row"><label for="gain">Glow strength</label><input type="range" id="gain" min="50" max="300" value="100"><output id="o2">1.0</output></div>
  <div class="opts">
@@ -64,6 +65,8 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--ac);outline-off
   <button id="rec">Export video (WebM)</button>
  </div>
  <div id="msg"></div>
+ <div class="stage" id="rstage"><video id="rv" controls loop playsinline muted></video></div>
+ <div class="btns" id="rbtn" style="display:none"><button id="save">Save to Downloads</button></div>
 </section>
 </main>
 <script>
@@ -93,7 +96,7 @@ function render(){
     const r=d[i],g=d[i+1],b=d[i+2];
     const m=r>g?(r>b?r:b):(g>b?g:b);
     let t=(m-black)/span;t=t<0?0:t>1?1:t;
-    const q=t*4>1?1:t*4;
+    const q=t*25>1?1:t*25;
     let a=t*q*q*(3-2*q)*gain;a=a>1?1:a;
     if(unm&&m>0){const k=Math.min(255/m,3);
       const R=Math.min(255,r*k),G=Math.min(255,g*k),B=Math.min(255,b*k);
@@ -138,6 +141,8 @@ $('png').onclick=()=>{
   render();
   c.toBlob(b=>{saveBlob(b,'frame.png')},'image/png');
 };
+let lastBlob=null;
+$('save').onclick=()=>{if(lastBlob){$('msg').textContent='Saving…';saveBlob(lastBlob,'glow-keyed.webm').then(()=>{$('msg').textContent='Saved: glow-keyed.webm'})}};
 $('rec').onclick=()=>{
   if(recording){v.loop=true;rec.stop();return}
   const mt=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'].find(t=>window.MediaRecorder&&MediaRecorder.isTypeSupported(t));
@@ -146,9 +151,11 @@ $('rec').onclick=()=>{
   rec.ondataavailable=e=>e.data.size&&chunks.push(e.data);
   rec.onstop=()=>{
     recording=false;$('rec').textContent='Export video (WebM)';
-    const blob=new Blob(chunks,{type:'video/webm'});
-    if(window.Android){$('msg').textContent='Saving…';saveBlob(blob,'glow-keyed.webm').then(()=>{$('msg').textContent='Saved to Downloads: glow-keyed.webm'})}
-    else{const url=URL.createObjectURL(blob);$('msg').innerHTML='Done. <a href="'+url+'" download="glow-keyed.webm">Download glow-keyed.webm</a>'}
+    lastBlob=new Blob(chunks,{type:'video/webm'});
+    $('rv').src=URL.createObjectURL(lastBlob);$('rv').muted=true;$('rv').play().catch(()=>{});
+    $('rstage').style.display='block';$('rbtn').style.display='flex';
+    $('msg').textContent='This is the exported video. Tap Save if it looks right.';
+    $('rstage').scrollIntoView({behavior:'smooth'});
   };
   recording=true;$('rec').textContent='Recording… tap to stop early';
   $('msg').textContent='Recording one full play-through in real time. Keep this tab open.';
